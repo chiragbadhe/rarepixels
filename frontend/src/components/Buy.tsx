@@ -5,7 +5,6 @@ import { RarePixelsContractAddress } from "@/utils/constants";
 import { useReadContract, useWriteContract } from "wagmi";
 import { getMetadataFromIPFS, Metadata } from "../utils/ipfs";
 import { localNfts } from "@/utils/locakNfts";
-import { truncateEOAAddress } from "@/utils/truncateEOAAddress";
 import { parseEther } from "viem";
 
 type Props = {};
@@ -17,23 +16,24 @@ function Buy({}: Props) {
 
   const [selectedTokenId, setSelectedTokenId] = useState(null);
 
+  // console.log(allNftsMinted);
+
   const handleNftBuy = (tokenId: React.SetStateAction<null>) => {
     setSelectedTokenId(tokenId);
     writeContract({
       abi: RarePixelsAbi,
       address: RarePixelsContractAddress,
       functionName: "buyNFT",
-      args: [BigInt(selectedTokenId !== null ? selectedTokenId : 0)],
-      chainId: 11155111,
+      args: [selectedTokenId],
     });
     console.log("Selected Token ID:", tokenId, error?.message);
   };
 
-  const { isLoading, data } = useReadContract({
+  const { isLoading, data, isError } = useReadContract({
     abi: RarePixelsAbi,
     address: RarePixelsContractAddress,
-    functionName: "getAllMintedNFTsByWallet",
-    args: ["0x16B2a4AEd3648723e4BDe7638507fCE7792982e3"],
+    functionName: "getAllNFTs",
+    args: [],
   });
 
   useEffect(() => {
@@ -46,8 +46,6 @@ function Buy({}: Props) {
     };
     fetchAllMintedNFTs();
   }, [data]);
-
-  console.log(allNftsMinted);
 
   return (
     <div className="container mx-auto justify-center w-full pt-[60px]">
@@ -84,52 +82,32 @@ function Buy({}: Props) {
         ></video>
       </div>
       <div className=" border-white/20 mt-[40px] grid grid-cols-4 gap-[30px] py-[30px]">
-        {/* {!isLoading ? (
-          Array.isArray(allNftsMinted[0]) && allNftsMinted[0].length > 0 ? (
+        {!isLoading ? (
+          Array.isArray(allNftsMinted) && allNftsMinted.length > 0 ? (
             <>
-              {allNftsMinted[0].map((hash) => (
-                <div key={hash}>
-                  <NftCard
-                    onDashboard={false}
-                    nftName={undefined}
-                    tokenId={undefined}
-                    walletAddress={undefined}
-                    nftPrice={undefined}
-                    royalty={undefined}
-                    imageUri={
-                      "https://cdn.pixabay.com/photo/2022/01/17/17/20/bored-6945309_1280.png"
-                    }
-                  />
-                </div>
-              ))}
+              {allNftsMinted.map((nft: any) => {
+                if (nft.isForSale) {
+                  return (
+                    <div key={nft.tokenId}>
+                      <NftCard
+                        onDashboard={false}
+                        tokenId={nft.tokenId.toString()}
+                        walletAddress={nft.owner}
+                        nftPrice={nft.price.toString()}
+                        royalty={nft.creatorRoyalty.toString()}
+                        BuyNft={handleNftBuy}
+                        imageUri={nft.hash.toString()}
+                      />
+                    </div>
+                  );
+                } else {
+                  return null; // Skip rendering NFTs that are not for sale
+                }
+              })}
             </>
           ) : (
             "No NFTs minted"
           )
-        ) : (
-          "Loading..."
-        )} */}
-
-        {!isLoading ? (
-          <>
-            {localNfts.map((nft, index) => {
-              const truncatedAddress = truncateEOAAddress(nft.walletAddress);
-
-              return (
-                <div key={index}>
-                  <NftCard
-                    imageUri={nft.imageUri}
-                    nftName={nft.name}
-                    tokenId={nft.tokenId}
-                    walletAddress={truncatedAddress}
-                    nftPrice={nft.tokenPrice}
-                    royalty={nft.royalty}
-                    BuyNft={handleNftBuy}
-                  />
-                </div>
-              );
-            })}
-          </>
         ) : (
           "Loading..."
         )}

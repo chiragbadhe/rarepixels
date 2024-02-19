@@ -6,9 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract RarePixels is ERC721, Ownable {
-    using SafeMath for uint256;
-
-    // Counter to keep track of token IDs
+        // Counter to keep track of token IDs
     uint256 private tokenIdCounter;
 
     // Mapping to store IPFS hash, price, and creator royalty percentage for each token ID
@@ -29,13 +27,13 @@ contract RarePixels is ERC721, Ownable {
     constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol) {}
 
     // Function to mint a new NFT
-    function mintNFT(string memory _ipfsHash, uint256 _price, uint256 _creatorRoyalty) external onlyOwner {
+    function mintNFT(string memory _ipfsHash, uint256 _price, uint256 _creatorRoyalty) external {
         require(_creatorRoyalty <= 100, "Royalty percentage must be between 0 and 100");
 
         uint256 newTokenId = tokenIdCounter;
 
         // Increment the token ID counter
-        tokenIdCounter = tokenIdCounter.add(1);
+        tokenIdCounter++;
 
         // Mint the new NFT
         _safeMint(msg.sender, newTokenId);
@@ -85,26 +83,34 @@ contract RarePixels is ERC721, Ownable {
         // Emit the NFT sold event
         emit NFTSold(_tokenId, seller, address(0), _salePrice);
     }
-
     // Function to buy an NFT
     function buyNFT(uint256 _tokenId) external payable {
         require(_exists(_tokenId), "Token ID does not exist");
+
         address seller = ownerOf(_tokenId);
         address buyer = msg.sender;
         uint256 salePrice = tokenPrices[_tokenId];
+        uint256 creatorRoyaltyPercentage = creatorRoyalties[_tokenId];
 
+        // Check if the buyer is not the owner of the NFT
         require(seller != buyer, "You cannot buy your own NFT");
-        require(msg.value >= salePrice, "Insufficient funds");
+
+        // Check if the provided Ether is exactly equal to the sale price
+        require(msg.value == salePrice, "Incorrect Ether amount sent");
+
+        // Check if the buyer sent enough funds to cover the sale price and creator royalty
+        uint256 totalPayment = salePrice + (salePrice * creatorRoyaltyPercentage) / 100;
+        require(msg.value >= totalPayment, "Insufficient funds");
 
         // Transfer ownership of the NFT to the buyer
-        _safeTransfer(address(this), buyer, _tokenId, "");
+        _safeTransfer(seller, buyer, _tokenId, "");
 
         // Transfer the sale price to the seller
         payable(seller).transfer(salePrice);
 
-        // Distribute royalty to the creator
-        uint256 creatorRoyalty = (salePrice * creatorRoyalties[_tokenId]) / 100;
-        payable(owner()).transfer(creatorRoyalty);
+        // Distribute royalty to the creator (minting address)
+        uint256 creatorRoyalty = (salePrice * creatorRoyaltyPercentage) / 100;
+        payable(buyer).transfer(creatorRoyalty);
 
         // Emit the NFT sold event
         emit NFTSold(_tokenId, seller, buyer, salePrice);

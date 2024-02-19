@@ -1,1 +1,1 @@
-export const RarePixelsContractAddress = "0x8bf44F7DA042aFB75b117000D0F0A39beD6cFe4b"
+export const RarePixelsContractAddress = "0xa976424a339DBc75b477e13C96b21023cD92cbA1"

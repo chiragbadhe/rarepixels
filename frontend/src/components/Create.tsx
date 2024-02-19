@@ -8,21 +8,20 @@ import { RarePixelsAbi } from "@/abis/RarePixels";
 type Props = {};
 
 interface TokenInput {
-  name: string;
-  description: string;
-  image: Blob;
+  image: any;
   walletAddress: string;
   priceToList: string;
   royaltyPercentage: string;
 }
 function Create({}: Props) {
   const { writeContract, error } = useWriteContract();
+  const { address, isConnected } = useAccount();
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    nftName: "",
-    creatorName: "",
-    walletAddress: "", // Default value, replace with actual wallet address logic
+    walletAddress: address,
     priceToList: "",
     royaltyPercentage: "",
   });
@@ -40,72 +39,62 @@ function Create({}: Props) {
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const fileInput = event.target;
     const selectedFile = fileInput.files && fileInput.files[0];
-
     if (selectedFile) {
       const reader = new FileReader();
-
       reader.onload = () => {
         setImagePreview(reader.result as string);
       };
-
       reader.readAsDataURL(selectedFile);
     }
   };
 
-  const saveToNFTStorage = async () => {
+  const MintNft = async () => {
     try {
+      if (
+        !formData.walletAddress ||
+        !formData.priceToList ||
+        !formData.royaltyPercentage
+      ) {
+        setErrorMessage("Please fill in all required fields.");
+        return;
+      }
+
+      setLoading(true);
+
       const nftStorage = new NFTStorage({
         token:
           "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkaWQ6ZXRocjoweDMxRWZEYkU4MTU1RTQ0Y2NEOWNhNkIwNDBjYTc5MzJmOWNlRjdmNzciLCJpc3MiOiJuZnQtc3RvcmFnZSIsImlhdCI6MTcwNzkwMTg1NDA4OSwibmFtZSI6InJhcmVwaXhlbCJ9.kAfHRL7t9VuSwzU6Z4JI3mVBbue009CRiRcRu_R02wA",
       });
 
-      // Convert the image data to a Blob
       const imageBlob = new Blob([
         Buffer.from(imagePreview!.split(",")[1], "base64"),
       ]);
 
-      // Upload image to nft.storage
-      const imageResult = await nftStorage.storeBlob(imageBlob);
+      const dataResult = await nftStorage.storeBlob(imageBlob);
 
-      // Create a JSON object with the form data and image nft.storage URL
-      const dataWithImageURL = {
-        ...formData,
-        imageUrl: imageResult,
-      };
+      writeContract({
+        abi: RarePixelsAbi,
+        address: RarePixelsContractAddress,
+        functionName: "mintNFT",
+        args: [
+          `https://${dataResult}.ipfs.nftstorage.link`,
+          BigInt(formData.priceToList),
+          formData.royaltyPercentage,
+        ],
+      });
 
-      const tokenInput: TokenInput = {
-        name: formData.nftName,
-        description: formData.creatorName, // You can choose another property for description
-        image: imageBlob,
-        walletAddress: formData.walletAddress,
-        priceToList: formData.priceToList,
-        royaltyPercentage: formData.royaltyPercentage,
-      };
-
-      // Upload form data to nft.storage
-      const dataResult = await nftStorage.store(tokenInput);
-
-      console.log("NFT.Storage URL:", dataResult.url);
+      console.log(
+        "NFT.Storage URL:",
+        `https://${dataResult}.ipfs.nftstorage.link`
+      );
     } catch (error) {
       console.error("Error saving to NFT.Storage:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   console.log(error);
-
-  const MintNFT = () => {
-    console.log("Test");
-    writeContract({
-      abi: RarePixelsAbi,
-      address: RarePixelsContractAddress,
-      functionName: "mintNFT",
-      args: [
-        "bafyreid4c6mcuvmd5zpalwpsfvwqdoxgj3zvf3mk23d3xvzyoyoebba25s",
-        parseEther("0.1"),
-        10,
-      ],
-    });
-  };
 
   return (
     <div className="container mx-auto flex flex-col  h-[600px] w-screen mt-[50px]">
@@ -150,33 +139,20 @@ function Create({}: Props) {
         </div>
         <div className="w-[500px] ">
           <div className="w-full">
+            {!isConnected ? (
+              <div className="w-full  bg-red-500 py-[12px] rounded-[12px] px-[16px] mb-[12px]">
+                Please connect your wallet to continue
+              </div>
+            ) : (
+              <div className="w-full  bg-green-500 py-[12px] rounded-[12px] px-[16px] mb-[12px]">
+                Wallet is connected
+              </div>
+            )}
             <div className="space-y-[20px]">
-              <p className="flex flex-col">
-                <span className="text-[16px]">NFT Name</span>
-                <input
-                  className="px-[12px] py-[8px] outline-none rounded-[6px] border border-white/20 bg-transparent mt-[6px]"
-                  placeholder="Enter NFT Name"
-                  type="text"
-                  value={formData.nftName}
-                  onChange={(e) => handleInputChange(e, "nftName")}
-                />
-              </p>
-
-              <p className="flex flex-col">
-                <span className="text-[16px]">Creator Name</span>
-                <input
-                  className="px-[12px] py-[8px] outline-none rounded-[6px] border border-white/20 bg-transparent mt-[6px]"
-                  placeholder="Enter Creator Name"
-                  type="text"
-                  value={formData.creatorName}
-                  onChange={(e) => handleInputChange(e, "creatorName")}
-                />
-              </p>
-
               <p className="flex flex-col">
                 <span className="text-[16px]">Wallet Address</span>
                 <span className="px-[12px] py-[8px] outline-none rounded-[6px] border border-white/20 bg-transparent mt-[6px] opacity-70 cursor-no-drop">
-                  {formData.walletAddress}
+                  {isConnected ? formData.walletAddress : "Your Wallet Addess"}
                 </span>
               </p>
 
@@ -185,7 +161,7 @@ function Create({}: Props) {
                 <input
                   className="px-[12px] py-[8px] outline-none rounded-[6px] border border-white/20 bg-transparent mt-[6px]"
                   placeholder="Enter Price To List NFT"
-                  type="text"
+                  type="number"
                   value={formData.priceToList}
                   onChange={(e) => handleInputChange(e, "priceToList")}
                 />
@@ -196,25 +172,21 @@ function Create({}: Props) {
                 <input
                   className="px-[12px] py-[8px] outline-none rounded-[6px] border border-white/20 bg-transparent mt-[6px]"
                   placeholder="Enter the royalty percentage you want"
-                  type="text"
+                  type="number"
                   value={formData.royaltyPercentage}
                   onChange={(e) => handleInputChange(e, "royaltyPercentage")}
                 />
               </p>
             </div>
-            <button
-              onClick={saveToNFTStorage}
-              className="bg-cyan-400 rounded-[6px] w-full py-[12px] font-bold text-[16px] text-black mt-[20px]"
-            >
-              Create Nft
-            </button>
 
             <button
-              onClick={() => MintNFT()}
-              className="bg-green-400 rounded-[6px] w-full py-[12px] font-bold text-[16px] text-black mt-[20px]"
+              onClick={MintNft}
+              disabled={loading}
+              className="bg-cyan-400 rounded-[6px] w-full py-[12px] font-bold text-[16px] text-black mt-[20px]"
             >
-              Mint NFT
+              {!loading ? "Create Nft" : "Loading..."}
             </button>
+            <span className="text-red-600">{errorMessage && errorMessage}</span>
           </div>
         </div>
       </div>

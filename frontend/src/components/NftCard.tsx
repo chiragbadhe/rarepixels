@@ -1,12 +1,13 @@
 import result from "postcss/lib/result";
 import React, { ReactNode, useEffect, useMemo, useState } from "react";
+import { parseEther } from "viem";
+import { truncateEOAAddress } from "@/utils/truncateEOAAddress";
 
 type Props = {
   onDashboard?: boolean;
   sellNft?: any;
   setSellAmount?: any;
   sellAmountValue?: any;
-  nftName: any;
   tokenId: any;
   walletAddress: any;
   nftPrice: any;
@@ -20,7 +21,6 @@ function NftCard({
   sellNft,
   setSellAmount,
   BuyNft,
-  nftName,
   tokenId,
   walletAddress,
   nftPrice,
@@ -33,8 +33,6 @@ function NftCard({
   const sellAmount = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSellAmountValueForComponent(event.target.value);
   };
-
-  //   setSellAmount(sellAmountValueForComponent);
 
   const buyNftHandler: React.MouseEventHandler<HTMLButtonElement> = (event) => {
     // Your logic for buying the NFT using the tokenId
@@ -51,11 +49,10 @@ function NftCard({
         />
         <div className="flex  flex-col">
           <div className="justify-between w-full flex">
-            <span className="font-bold text-[18px]">{nftName}</span>
-            <span className="opacity-60">#{tokenId}</span>
+            <span className="opacity-60">Token Id: #{tokenId}</span>
           </div>
           <span className=" text-[14px] mt-[6px] opacity-80">
-            {walletAddress}
+            {truncateEOAAddress(walletAddress)}
           </span>
 
           <div className="flex space-x-[18px]">
@@ -86,7 +83,7 @@ function NftCard({
                 id=""
               />
               <button
-                onClick={() => sellNft(sellAmountValueForComponent)}
+                onClick={() => sellNft(tokenId, sellAmountValueForComponent)}
                 className="w-full bg-red-600 text-white font-bold mt-[12px] py-[6px] rounded-[6px] hover:bg-green-700 duration-300 animate"
               >
                 Sell

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import NftCard from "./NftCard";
-import { useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { RarePixelsAbi } from "@/abis/RarePixels";
 import { RarePixelsContractAddress } from "@/utils/constants";
 import { getAddress, parseEther } from "viem";
@@ -12,35 +12,40 @@ type Props = {};
 function Dashboard({}: Props) {
   const [nftsMinted, setNftsMinted] = useState<number[]>([]); // Assuming NFT IDs are of type 'number'
   const [sellAmount, setSellAmount] = useState();
+  const { address, isConnected } = useAccount();
+  const [selectedTokenId, setSelectedTokenId] = useState(null);
 
-  const { isLoading, data } = useReadContract({
+  const {
+    isLoading,
+    data,
+    error: err,
+  } = useReadContract({
     abi: RarePixelsAbi,
     address: RarePixelsContractAddress,
-    functionName: "getAllMintedNFTsByWallet",
-    args: ["0x16B2a4AEd3648723e4BDe7638507fCE7792982e3"],
+    functionName: "getAllNFTsByAddress",
+    args: [address],
   });
 
   const { writeContract, error, isSuccess } = useWriteContract();
 
-  const setAmountToSell = (value: React.SetStateAction<undefined>) => {
+  const handleNftSell = (
+    tokenId: React.SetStateAction<null>,
+    value: React.SetStateAction<undefined>
+  ) => {
+    setSelectedTokenId(tokenId);
     setSellAmount(value);
-  };
 
-  const sellNft = ({ tokenId }: any) => {
-    console.log("Sell");
+    console.log(selectedTokenId);
     writeContract({
       abi: RarePixelsAbi,
       address: RarePixelsContractAddress,
-      functionName: "mintNFT",
-      args: [
-        "bafyreid4c6mcuvmd5zpalwpsfvwqdoxgj3zvf3mk23d3xvzyoyoebba25s",
-        parseEther("0.1"),
-        10,
-      ],
+      functionName: "sellNFT",
+      args: [selectedTokenId, sellAmount],
     });
+    console.log("Selected Token ID:", tokenId, value, error?.message);
   };
 
-  console.log(data);
+  console.log(data, error, err);
 
   useEffect(() => {
     const fetchMintedNFTs = async () => {
@@ -52,8 +57,6 @@ function Dashboard({}: Props) {
     };
     fetchMintedNFTs();
   }, [data]);
-
-  console.log(nftsMinted[1]);
 
   return (
     <div className="container mx-auto  top-0">
@@ -70,58 +73,34 @@ function Dashboard({}: Props) {
       </div>
 
       <div className="grid grid-cols-4 gap-[30px] mt-[40px]">
-        {/* {!isLoading ? (
-          Array.isArray(nftsMinted[0]) && nftsMinted[0].length > 0 ? (
-            <>
-              {nftsMinted[0].map((id, index) => (
-                <div key={id}>
-                  <NftCard
-                    onDashboard={true}
-                    sellNft={sellNft}
-                    setSellAmount={setAmountToSell}
-                    sellAmountValue={sellAmount}
-                    imageUri={""}
-                    nftName={""}
-                    tokenId={""}
-                    walletAddress={""}
-                    nftPrice={""}
-                    royalty={""}
-                  />
-                </div>
-              ))}
-            </>
+        {isConnected ? (
+          !isLoading ? (
+            Array.isArray(nftsMinted) && nftsMinted.length > 0 ? (
+              <>
+                {nftsMinted.map((nft: any) => {
+                  return (
+                    <div key={nft.tokenId}>
+                      <NftCard
+                        onDashboard={true}
+                        tokenId={nft.tokenId.toString()} // Convert tokenId to string if needed
+                        walletAddress={nft.owner}
+                        nftPrice={nft.price.toString()} // Convert price to string if needed
+                        royalty={nft.creatorRoyalty.toString()} // Convert creatorRoyalty to string if needed
+                        sellNft={handleNftSell}
+                        imageUri={nft.hash.toString()}
+                      />
+                    </div>
+                  );
+                })}
+              </>
+            ) : (
+              "No NFTs minted"
+            )
           ) : (
-            "No NFTs minted"
+            "Loading..."
           )
         ) : (
-          "Loading..."
-        )} */}
-
-        {!isLoading ? (
-          <>
-            {localNfts.map((nft, index) => {
-              const truncatedAddress = truncateEOAAddress(nft.walletAddress);
-
-              return (
-                <div key={index}>
-                  <NftCard
-                    onDashboard={true}
-                    sellNft={sellNft}
-                    setSellAmount={setAmountToSell}
-                    sellAmountValue={sellAmount}
-                    imageUri={nft.imageUri}
-                    nftName={nft.name}
-                    tokenId={nft.tokenId}
-                    walletAddress={truncatedAddress}
-                    nftPrice={nft.tokenPrice}
-                    royalty={nft.royalty}
-                  />
-                </div>
-              );
-            })}
-          </>
-        ) : (
-          "Loading..."
+          "Please Connect Wallet First"
         )}
       </div>
     </div>
